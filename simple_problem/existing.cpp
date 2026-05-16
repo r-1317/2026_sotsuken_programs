@@ -193,13 +193,13 @@ int main(int argc, char** argv) {
   cout << "turns           = " << best->turn << "\n";
   cout << "nodes           = " << tree.size() << "\n";
 
-  cout << "\npath:\n";
-  for (int i = 1; i < (int)path_nodes.size(); i++) {
-    const auto& n = tree[path_nodes[i]];
-    cout << "turn " << n.turn
-          << ": action=" << n.action_id
-          << "\n";
-  }
+  // cout << "\npath:\n";
+  // for (int i = 1; i < (int)path_nodes.size(); i++) {
+  //   const auto& n = tree[path_nodes[i]];
+  //   cout << "turn " << n.turn
+  //         << ": action=" << n.action_id
+  //         << "\n";
+  // }
 
   return 0;
 }

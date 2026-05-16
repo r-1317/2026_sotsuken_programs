@@ -15,6 +15,7 @@ struct State {
   double g_sum_true = 0.0;
   deque<double> pending_g;
   int tree_index = -1;
+  uint64_t state_id = 0;
   // padding_sizeのぶんだけ1バイトのダミーデータを入れる
   vector<char> padding;
   State(int padding_size = 0) : padding(padding_size, 0) {}  // コンストラクタでpaddingを初期化
@@ -33,7 +34,8 @@ struct State {
 
 struct StateCmp {
   bool operator()(const State* a, const State* b) const {
-    return a->eval() < b->eval(); // priority_queue は最大値優先
+    if (a->eval() != b->eval()) return a->eval() < b->eval();
+    return a->state_id < b->state_id;
   }
 };
 
@@ -102,15 +104,17 @@ int main(int argc, char** argv) {
   mt19937_64 rng(seed);
   uniform_real_distribution<double> dist(0.0, 1.0);
 
-  vector<priority_queue<State*, vector<State*>, StateCmp>> pq(max_turn + 1);
+  vector<set<State*, StateCmp>> pq(max_turn + 1);
   deque<State> pool;
   vector<TreeNode> tree;
+  uint64_t next_state_id = 0;
 
   pool.emplace_back();
   State* root = &pool.back();
   root->turn = 0;
   root->tree_index = 0;
   root->padding.resize(padding_size);
+  root->state_id = next_state_id++;
 
   tree.push_back(TreeNode{
     .parent = -1,
@@ -119,14 +123,14 @@ int main(int argc, char** argv) {
     .action_id = -1
   });
 
-  pq[0].push(root);
+  pq[0].insert(root);
 
   for (int loop = 0; loop < loops; loop++) {
     for (int t = 0; t < max_turn; t++) {
       if (pq[t].empty()) continue;
 
-      State* cur = pq[t].top();
-      pq[t].pop();
+      State* cur = *pq[t].rbegin();
+      pq[t].erase(prev(pq[t].end()));
 
       for (int k = 0; k < branch; k++) {
         double f = dist(rng);
@@ -139,6 +143,7 @@ int main(int argc, char** argv) {
         nxt->f_sum += f;
         nxt->g_sum_true += g;
         nxt->pending_g.push_back(g);
+        nxt->state_id = next_state_id++;
 
         if ((int)nxt->pending_g.size() > delay) {
           nxt->g_sum_known += nxt->pending_g.front();
@@ -156,7 +161,10 @@ int main(int argc, char** argv) {
         tree[cur->tree_index].children.push_back(node_index);
         nxt->tree_index = node_index;
 
-        pq[t + 1].push(nxt);
+        pq[t + 1].insert(nxt);
+        if ((int)pq[t + 1].size() > max_turn) {
+          pq[t + 1].erase(pq[t + 1].begin());
+        }
       }
     }
   }
@@ -165,12 +173,12 @@ int main(int argc, char** argv) {
 
   // できれば最終ターンから選ぶ
   if (!pq[max_turn].empty()) {
-    best = pq[max_turn].top();
+    best = *pq[max_turn].rbegin();
 } else {
     // 念のため、最も深い非空レベルから選ぶ
     for (int t = max_turn - 1; t >= 0; t--) {
       if (!pq[t].empty()) {
-        best = pq[t].top();
+        best = *pq[t].rbegin();
         break;
       }
     }
@@ -193,13 +201,13 @@ int main(int argc, char** argv) {
   cout << "turns           = " << best->turn << "\n";
   cout << "nodes           = " << tree.size() << "\n";
 
-  cout << "\npath:\n";
-  for (int i = 1; i < (int)path_nodes.size(); i++) {
-    const auto& n = tree[path_nodes[i]];
-    cout << "turn " << n.turn
-          << ": action=" << n.action_id
-          << "\n";
-  }
+  // cout << "\npath:\n";
+  // for (int i = 1; i < (int)path_nodes.size(); i++) {
+  //   const auto& n = tree[path_nodes[i]];
+  //   cout << "turn " << n.turn
+  //         << ": action=" << n.action_id
+  //         << "\n";
+  // }
 
   return 0;
 }
