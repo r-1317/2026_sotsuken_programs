@@ -161,6 +161,8 @@ int main(int argc, char** argv) {
     }
   }
 
+  // cerr << "探索終了" << endl;
+
   State* best = nullptr;
 
   // できれば最終ターンから選ぶ
@@ -200,6 +202,8 @@ int main(int argc, char** argv) {
   //         << ": action=" << n.action_id
   //         << "\n";
   // }
+
+  // cerr << "==================全部終了のはず==================" << endl;
 
   return 0;
 }
