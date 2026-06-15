@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <time.h>
 using namespace std;
 
 struct TreeNode {
@@ -44,6 +45,8 @@ static void usage(const char* prog) {
 }
 
 int main(int argc, char** argv) {
+  clock_t start_time = clock();  // 開始時刻を記録
+
   ios::sync_with_stdio(false);
   cin.tie(nullptr);
 
@@ -203,7 +206,9 @@ int main(int argc, char** argv) {
   //         << "\n";
   // }
 
-  // cerr << "==================全部終了のはず==================" << endl;
+  clock_t end_time = clock();  // 終了時刻を記録
+  double elapsed_time = double(end_time - start_time) / CLOCKS_PER_SEC;
+  cerr << "elapsed_time = " << elapsed_time << " seconds\n";
 
   return 0;
 }
