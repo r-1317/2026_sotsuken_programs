@@ -198,11 +198,11 @@ int main(int argc, char** argv) {
   }
   reverse(path_nodes.begin(), path_nodes.end());
 
-  cout << fixed << setprecision(10);
-  cout << "evaluated_score = " << best->eval() << "\n";
-  cout << "true_score      = " << best->true_score() << "\n";
-  cout << "turns           = " << best->turn << "\n";
-  cout << "nodes           = " << tree.size() << "\n";
+  // cout << fixed << setprecision(10);
+  // cout << "evaluated_score = " << best->eval() << "\n";
+  // cout << "true_score      = " << best->true_score() << "\n";
+  // cout << "turns           = " << best->turn << "\n";
+  // cout << "nodes           = " << tree.size() << "\n";
 
   // cout << "\npath:\n";
   // for (int i = 1; i < (int)path_nodes.size(); i++) {
