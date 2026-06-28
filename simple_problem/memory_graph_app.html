@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory Graph App</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4efe7;
+      --bg-deep: #e9dfd1;
+      --panel: rgba(255, 255, 255, 0.82);
+      --panel-border: rgba(85, 58, 30, 0.14);
+      --text: #2f261d;
+      --muted: #6f6254;
+      --accent: #8a4f2d;
+      --accent-2: #2f6f7e;
+      --good: #2f6f7e;
+      --warn: #a45d1f;
+      --shadow: 0 18px 50px rgba(57, 39, 22, 0.14);
+      --radius: 22px;
+      --font: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 35%),
+        radial-gradient(circle at 85% 15%, rgba(138, 79, 45, 0.14), transparent 24%),
+        radial-gradient(circle at 15% 80%, rgba(47, 111, 126, 0.12), transparent 28%),
+        linear-gradient(180deg, var(--bg), var(--bg-deep));
+    }
+
+    .app {
+      width: min(1400px, calc(100% - 32px));
+      margin: 20px auto 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 22px 24px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.6rem);
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .field label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .field input[type="file"],
+    .field select,
+    .field button {
+      width: 100%;
+      border: 1px solid rgba(76, 57, 38, 0.18);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      padding: 12px 14px;
+      font: inherit;
+    }
+
+    .field button {
+      cursor: pointer;
+      font-weight: 700;
+      background: linear-gradient(180deg, #fff, #f4e8da);
+    }
+
+    .field button:hover {
+      border-color: rgba(138, 79, 45, 0.38);
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+    .span-3 { grid-column: span 3; }
+    .span-2 { grid-column: span 2; }
+
+    .switches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding-top: 4px;
+      color: var(--muted);
+    }
+
+    .switches label {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(76, 57, 38, 0.14);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: 18px;
+    }
+
+    .chart-card,
+    .side-card {
+      padding: 18px;
+    }
+
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card-title h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .card-title .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .chart-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(76, 57, 38, 0.12);
+      background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55));
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      min-width: 760px;
+      aspect-ratio: 16 / 9;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid rgba(76, 57, 38, 0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .status {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .dataset-info {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(138, 79, 45, 0.1);
+      color: var(--text);
+      border: 1px solid rgba(138, 79, 45, 0.18);
+      font-size: 0.88rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100% - 16px, 1400px); margin-top: 10px; }
+      .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .span-12, .span-6, .span-4, .span-3, .span-2 { grid-column: span 2; }
+      .hero, .panel, .chart-card, .side-card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>Memory Graph App</h1>
+      <p>
+        CSV を読み込み、branch / loops / padding_size のうち 1 つを横軸に、残り 2 つを固定してメモリ使用量を描画します。
+        existing.out と new.out を同じグラフに重ねて比較できます。
+      </p>
+    </section>
+
+    <section class="panel toolbar" aria-label="controls">
+      <div class="field span-4">
+        <label for="csvFile">CSV ファイル</label>
+        <input id="csvFile" type="file" accept=".csv,text/csv">
+      </div>
+      <div class="field span-4">
+        <label for="xAxis">横軸</label>
+        <select id="xAxis"></select>
+      </div>
+      <div class="field span-4">
+        <label for="loadDefault">デフォルト CSV</label>
+        <button id="loadDefault" type="button">out/all_memory_usage.csv を読む</button>
+      </div>
+
+      <div class="field span-3">
+        <label id="fixedLabelA" for="fixedA"></label>
+        <select id="fixedA"></select>
+      </div>
+      <div class="field span-3">
+        <label id="fixedLabelB" for="fixedB"></label>
+        <select id="fixedB"></select>
+      </div>
+      <div class="field span-6">
+        <label>表示系列</label>
+        <div class="switches">
+          <label><input id="showExisting" type="checkbox" checked> existing.out</label>
+          <label><input id="showNew" type="checkbox" checked> new.out</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <section class="panel chart-card">
+        <div class="card-title">
+          <h2>グラフ</h2>
+          <div class="meta" id="chartMeta">CSV を読み込んでください</div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="chart" viewBox="0 0 1200 700" role="img" aria-label="memory graph"></svg>
+        </div>
+        <div class="legend">
+          <span class="legend-item"><span class="swatch" style="background:#2f6f7e"></span> existing.out</span>
+          <span class="legend-item"><span class="swatch" style="background:#a45d1f"></span> new.out</span>
+          <span class="legend-item">縦軸: Peak memory [MiB]</span>
+        </div>
+      </section>
+
+      <aside class="panel side-card">
+        <div class="card-title">
+          <h2>データ</h2>
+          <div class="meta" id="rowCount">0 rows</div>
+        </div>
+        <div class="status" id="status">
+          CSV を選択してください。ヘッダは branch, loops, padding_size, existing_memory_kb, existing_status, new_memory_kb, new_status を想定しています。
+        </div>
+        <div class="dataset-info">
+          <div>
+            <div class="hint">固定値候補</div>
+            <div class="pill-row" id="valueSummary"></div>
+          </div>
+          <div>
+            <div class="hint">使い方</div>
+            <div class="status">
+              1. CSV を読み込む
+              2. 横軸を選ぶ
+              3. 残り 2 つの値を固定する
+              4. 表示系列を切り替える
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const columns = ["branch", "loops", "padding_size"];
+    const labels = {
+      branch: "branch",
+      loops: "loops",
+      padding_size: "padding-size",
+    };
+
+    const state = {
+      rows: [],
+      xAxis: "branch",
+      fixed: {},
+    };
+
+    const els = {
+      csvFile: document.getElementById("csvFile"),
+      xAxis: document.getElementById("xAxis"),
+      fixedA: document.getElementById("fixedA"),
+      fixedB: document.getElementById("fixedB"),
+      fixedLabelA: document.getElementById("fixedLabelA"),
+      fixedLabelB: document.getElementById("fixedLabelB"),
+      showExisting: document.getElementById("showExisting"),
+      showNew: document.getElementById("showNew"),
+      chart: document.getElementById("chart"),
+      status: document.getElementById("status"),
+      chartMeta: document.getElementById("chartMeta"),
+      rowCount: document.getElementById("rowCount"),
+      valueSummary: document.getElementById("valueSummary"),
+      loadDefault: document.getElementById("loadDefault"),
+    };
+
+    function parseCSV(text) {
+      const lines = text.replace(/\r/g, "").split("\n").filter(line => line.trim().length > 0);
+      if (lines.length === 0) return [];
+      const headers = splitCSVLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const cells = splitCSVLine(line);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = cells[index] ?? "";
+        });
+        return row;
+      });
+    }
+
+    function splitCSVLine(line) {
+      const cells = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === "," && !inQuotes) {
+          cells.push(current);
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      cells.push(current);
+      return cells.map(value => value.trim());
+    }
+
+    function toNumber(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
+    function uniqueSorted(rows, column) {
+      return [...new Set(rows.map(row => toNumber(row[column])).filter(Number.isFinite))].sort((a, b) => a - b);
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("ja-JP").format(value);
+    }
+
+    function formatMemoryMiB(kb) {
+      const mib = kb / 1024;
+      if (mib >= 10) return `${mib.toFixed(1)} MiB`;
+      return `${mib.toFixed(2)} MiB`;
+    }
+
+    function niceStep(range, targetTicks) {
+      if (range <= 0) return 1;
+      const rough = range / Math.max(1, targetTicks);
+      const power = Math.pow(10, Math.floor(Math.log10(rough)));
+      const choices = [1, 2, 5, 10];
+      for (const choice of choices) {
+        const step = choice * power;
+        if (rough <= step) return step;
+      }
+      return 10 * power;
+    }
+
+    function buildTicks(min, max, targetTicks = 5) {
+      if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+      if (min === max) return [min];
+      const step = niceStep(max - min, targetTicks);
+      const start = Math.floor(min / step) * step;
+      const end = Math.ceil(max / step) * step;
+      const ticks = [];
+      for (let value = start; value <= end + step * 0.25; value += step) {
+        ticks.push(value);
+      }
+      return ticks;
+    }
+
+    function setOptions(select, values, preferred) {
+      const current = preferred ?? select.value;
+      select.innerHTML = "";
+      values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = String(value);
+        option.textContent = formatNumber(value);
+        select.appendChild(option);
+      });
+      if (values.length === 0) return;
+      const available = values.map(String);
+      select.value = available.includes(String(current)) ? String(current) : available[Math.floor(available.length / 2)];
+    }
+
+    function updateControlLabels() {
+      const fixedColumns = columns.filter(column => column !== state.xAxis);
+      els.fixedLabelA.textContent = `固定 ${labels[fixedColumns[0]]}`;
+      els.fixedLabelB.textContent = `固定 ${labels[fixedColumns[1]]}`;
+      els.xAxis.innerHTML = "";
+      columns.forEach(column => {
+        const option = document.createElement("option");
+        option.value = column;
+        option.textContent = labels[column];
+        els.xAxis.appendChild(option);
+      });
+      els.xAxis.value = state.xAxis;
+    }
+
+    function refreshSelectors() {
+      const fixedColumns = columns.filter(column => column !== state.xAxis);
+      const valuesA = uniqueSorted(state.rows, fixedColumns[0]);
+      const valuesB = uniqueSorted(state.rows, fixedColumns[1]);
+      setOptions(els.fixedA, valuesA, state.fixed[fixedColumns[0]]);
+      setOptions(els.fixedB, valuesB, state.fixed[fixedColumns[1]]);
+      state.fixed[fixedColumns[0]] = Number(els.fixedA.value);
+      state.fixed[fixedColumns[1]] = Number(els.fixedB.value);
+      els.valueSummary.innerHTML = "";
+      columns.forEach(column => {
+        const values = uniqueSorted(state.rows, column);
+        const pill = document.createElement("span");
+        pill.className = "pill";
+        pill.textContent = `${labels[column]}: ${values.length ? values.length + " values" : "none"}`;
+        els.valueSummary.appendChild(pill);
+      });
+    }
+
+    function filterRows() {
+      const fixedColumns = columns.filter(column => column !== state.xAxis);
+      const fixedAValue = Number(els.fixedA.value);
+      const fixedBValue = Number(els.fixedB.value);
+      state.fixed[fixedColumns[0]] = fixedAValue;
+      state.fixed[fixedColumns[1]] = fixedBValue;
+
+      return state.rows.filter(row => {
+        const matchesA = toNumber(row[fixedColumns[0]]) === fixedAValue;
+        const matchesB = toNumber(row[fixedColumns[1]]) === fixedBValue;
+        return matchesA && matchesB;
+      });
+    }
+
+    function buildSeries(rows, memoryKey) {
+      return rows
+        .map(row => ({
+          x: toNumber(row[state.xAxis]),
+          y: toNumber(row[memoryKey]),
+        }))
+        .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+        .sort((a, b) => a.x - b.x);
+    }
+
+    function svgEl(name, attrs = {}) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [key, value] of Object.entries(attrs)) {
+        el.setAttribute(key, String(value));
+      }
+      return el;
+    }
+
+    function renderChart() {
+      const rows = filterRows();
+      const showExisting = els.showExisting.checked;
+      const showNew = els.showNew.checked;
+      const series = [];
+      if (showExisting) series.push({ key: "existing_memory_kb", label: "existing.out", color: "#2f6f7e" });
+      if (showNew) series.push({ key: "new_memory_kb", label: "new.out", color: "#a45d1f" });
+
+      els.chart.innerHTML = "";
+
+      if (rows.length === 0 || series.length === 0) {
+        const message = rows.length === 0
+          ? "一致する行がありません。固定値を変更してください。"
+          : "表示系列を選択してください。";
+        els.chart.appendChild(svgEl("text", {
+          x: 600,
+          y: 350,
+          "text-anchor": "middle",
+          "font-size": 22,
+          fill: "#6f6254",
+        })).textContent = message;
+        els.status.textContent = message;
+        els.chartMeta.textContent = "描画なし";
+        els.rowCount.textContent = `${rows.length} rows`;
+        return;
+      }
+
+      const plot = { left: 95, top: 30, right: 30, bottom: 80 };
+      const width = 1200;
+      const height = 700;
+      const innerWidth = width - plot.left - plot.right;
+      const innerHeight = height - plot.top - plot.bottom;
+
+      const allPoints = series.flatMap(item => buildSeries(rows, item.key));
+      const xValues = allPoints.map(point => point.x);
+      const yValues = allPoints.map(point => point.y);
+      let xMin = Math.min(...xValues);
+      let xMax = Math.max(...xValues);
+      let yMin = Math.min(0, ...yValues);
+      let yMax = Math.max(...yValues);
+      if (xMin === xMax) {
+        xMin -= 1;
+        xMax += 1;
+      }
+      if (yMin === yMax) {
+        yMin = 0;
+        yMax += 1;
+      }
+      const yPadding = (yMax - yMin) * 0.08;
+      yMax += yPadding;
+
+      const xScale = value => plot.left + ((value - xMin) / (xMax - xMin)) * innerWidth;
+      const yScale = value => plot.top + innerHeight - ((value - yMin) / (yMax - yMin)) * innerHeight;
+
+      const grid = svgEl("g", { opacity: 1 });
+      const ticksX = buildTicks(xMin, xMax, 6);
+      const ticksY = buildTicks(yMin, yMax, 6);
+
+      ticksX.forEach(tick => {
+        const x = xScale(tick);
+        grid.appendChild(svgEl("line", {
+          x1: x, y1: plot.top, x2: x, y2: plot.top + innerHeight,
+          stroke: "rgba(110, 90, 74, 0.14)", "stroke-width": 1,
+        }));
+        const label = svgEl("text", {
+          x, y: plot.top + innerHeight + 28, "text-anchor": "middle",
+          fill: "#6f6254", "font-size": 14,
+        });
+        label.textContent = formatNumber(tick);
+        grid.appendChild(label);
+      });
+
+      ticksY.forEach(tick => {
+        const y = yScale(tick);
+        grid.appendChild(svgEl("line", {
+          x1: plot.left, y1: y, x2: plot.left + innerWidth, y2: y,
+          stroke: "rgba(110, 90, 74, 0.14)", "stroke-width": 1,
+        }));
+        const label = svgEl("text", {
+          x: plot.left - 12, y: y + 5, "text-anchor": "end",
+          fill: "#6f6254", "font-size": 14,
+        });
+        label.textContent = formatMemoryMiB(Math.round(tick));
+        grid.appendChild(label);
+      });
+
+      grid.appendChild(svgEl("line", {
+        x1: plot.left, y1: plot.top + innerHeight, x2: plot.left + innerWidth, y2: plot.top + innerHeight,
+        stroke: "rgba(47, 38, 29, 0.45)", "stroke-width": 1.4,
+      }));
+      grid.appendChild(svgEl("line", {
+        x1: plot.left, y1: plot.top, x2: plot.left, y2: plot.top + innerHeight,
+        stroke: "rgba(47, 38, 29, 0.45)", "stroke-width": 1.4,
+      }));
+
+      const xAxisLabel = svgEl("text", {
+        x: plot.left + innerWidth / 2,
+        y: height - 22,
+        "text-anchor": "middle",
+        fill: "#2f261d",
+        "font-size": 18,
+        "font-weight": 700,
+      });
+      xAxisLabel.textContent = labels[state.xAxis];
+      grid.appendChild(xAxisLabel);
+
+      const yAxisLabel = svgEl("text", {
+        x: 26,
+        y: plot.top + innerHeight / 2,
+        transform: `rotate(-90 26 ${plot.top + innerHeight / 2})`,
+        "text-anchor": "middle",
+        fill: "#2f261d",
+        "font-size": 18,
+        "font-weight": 700,
+      });
+      yAxisLabel.textContent = "Peak memory [MiB]";
+      grid.appendChild(yAxisLabel);
+
+      els.chart.appendChild(grid);
+
+      series.forEach(item => {
+        const points = buildSeries(rows, item.key);
+        if (points.length === 0) return;
+        const group = svgEl("g");
+        const path = points
+          .map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.x)},${yScale(point.y)}`)
+          .join(" ");
+        group.appendChild(svgEl("path", {
+          d: path,
+          fill: "none",
+          stroke: item.color,
+          "stroke-width": 4,
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        }));
+        points.forEach(point => {
+          const circle = svgEl("circle", {
+            cx: xScale(point.x),
+            cy: yScale(point.y),
+            r: 5.5,
+            fill: item.color,
+            stroke: "white",
+            "stroke-width": 2,
+          });
+          group.appendChild(circle);
+        });
+        els.chart.appendChild(group);
+      });
+
+      const fixedColumns = columns.filter(column => column !== state.xAxis);
+      els.chartMeta.textContent = `${labels[state.xAxis]} を横軸、${labels[fixedColumns[0]]}=${formatNumber(Number(els.fixedA.value))} / ${labels[fixedColumns[1]]}=${formatNumber(Number(els.fixedB.value))}`;
+      els.rowCount.textContent = `${rows.length} rows`;
+      els.status.textContent = `読み込み成功: ${state.rows.length} rows\nフィルタ後: ${rows.length} rows\n横軸: ${labels[state.xAxis]}`;
+    }
+
+    function updateAll() {
+      updateControlLabels();
+      refreshSelectors();
+      renderChart();
+    }
+
+    async function loadDefaultCSV() {
+      try {
+        const response = await fetch("out/all_memory_usage.csv", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        loadCSVText(text, "out/all_memory_usage.csv");
+      } catch (error) {
+        els.status.textContent = `デフォルト CSV を読み込めませんでした。\n${error.message}\n\nファイル入力から CSV を選んでください。`;
+      }
+    }
+
+    function loadCSVText(text, sourceLabel = "CSV") {
+      const rows = parseCSV(text);
+      if (rows.length === 0) {
+        els.status.textContent = `${sourceLabel} にデータがありません。`;
+        return;
+      }
+      state.rows = rows.map(row => ({
+        branch: row.branch,
+        loops: row.loops,
+        padding_size: row.padding_size,
+        existing_memory_kb: row.existing_memory_kb,
+        new_memory_kb: row.new_memory_kb,
+      }));
+
+      const availableX = columns.filter(column => uniqueSorted(state.rows, column).length > 0);
+      if (!availableX.includes(state.xAxis)) {
+        state.xAxis = availableX[0] ?? "branch";
+      }
+      updateAll();
+      els.status.textContent = `${sourceLabel} を読み込みました。\n${state.rows.length} rows を検出しました。`;
+    }
+
+    els.xAxis.addEventListener("change", () => {
+      state.xAxis = els.xAxis.value;
+      const fixedColumns = columns.filter(column => column !== state.xAxis);
+      state.fixed[fixedColumns[0]] = Number(els.fixedA.value);
+      state.fixed[fixedColumns[1]] = Number(els.fixedB.value);
+      updateAll();
+    });
+
+    els.fixedA.addEventListener("change", renderChart);
+    els.fixedB.addEventListener("change", renderChart);
+    els.showExisting.addEventListener("change", renderChart);
+    els.showNew.addEventListener("change", renderChart);
+    els.csvFile.addEventListener("change", async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      loadCSVText(text, file.name);
+    });
+    els.loadDefault.addEventListener("click", loadDefaultCSV);
+
+    updateControlLabels();
+    els.fixedA.innerHTML = "";
+    els.fixedB.innerHTML = "";
+    els.chart.innerHTML = "";
+    els.chart.appendChild(svgEl("text", {
+      x: 600,
+      y: 350,
+      "text-anchor": "middle",
+      "font-size": 22,
+      fill: "#6f6254",
+    })).textContent = "CSV を読み込んでください";
+
+    loadDefaultCSV();
+  </script>
+</body>
+</html>
