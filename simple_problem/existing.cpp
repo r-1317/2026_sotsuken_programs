@@ -33,8 +33,8 @@ struct State {
 };
 
 struct StateCmp {
-  bool operator()(const State* a, const State* b) const {
-    return a->eval() < b->eval(); // priority_queue は最大値優先
+  bool operator()(const State& a, const State& b) const {
+    return a.eval() < b.eval(); // priority_queue は最大値優先
   }
 };
 
@@ -105,15 +105,12 @@ int main(int argc, char** argv) {
   mt19937_64 rng(seed);
   uniform_real_distribution<double> dist(0.0, 1.0);
 
-  vector<priority_queue<State*, vector<State*>, StateCmp>> pq(max_turn + 1);
-  deque<State> pool;
+  vector<priority_queue<State, vector<State>, StateCmp>> pq(max_turn + 1);
   vector<TreeNode> tree;
 
-  pool.emplace_back();
-  State* root = &pool.back();
-  root->turn = 0;
-  root->tree_index = 0;
-  root->padding.resize(padding_size);
+  State root(padding_size);
+  root.turn = 0;
+  root.tree_index = 0;
 
   tree.push_back(TreeNode{
     .parent = -1,
@@ -128,36 +125,35 @@ int main(int argc, char** argv) {
     for (int t = 0; t < max_turn; t++) {
       if (pq[t].empty()) continue;
 
-      State* cur = pq[t].top();
+      State cur = pq[t].top();
       pq[t].pop();
 
       for (int k = 0; k < branch; k++) {
         double f = dist(rng);
         double g = dist(rng);
 
-        pool.emplace_back(*cur);
-        State* nxt = &pool.back();
+        State nxt = cur;
 
-        nxt->turn = cur->turn + 1;
-        nxt->f_sum += f;
-        nxt->g_sum_true += g;
-        nxt->pending_g.push_back(g);
+        nxt.turn = cur.turn + 1;
+        nxt.f_sum += f;
+        nxt.g_sum_true += g;
+        nxt.pending_g.push_back(g);
 
-        if ((int)nxt->pending_g.size() > delay) {
-          nxt->g_sum_known += nxt->pending_g.front();
-          nxt->pending_g.pop_front();
+        if ((int)nxt.pending_g.size() > delay) {
+          nxt.g_sum_known += nxt.pending_g.front();
+          nxt.pending_g.pop_front();
         }
 
         int node_index = (int)tree.size();
         tree.push_back(TreeNode{
-          .parent = cur->tree_index,
+          .parent = cur.tree_index,
           .children = {},
-          .turn = nxt->turn,
+          .turn = nxt.turn,
           .action_id = k
         });
 
-        tree[cur->tree_index].children.push_back(node_index);
-        nxt->tree_index = node_index;
+        tree[cur.tree_index].children.push_back(node_index);
+        nxt.tree_index = node_index;
 
         pq[t + 1].push(nxt);
       }
@@ -166,28 +162,31 @@ int main(int argc, char** argv) {
 
   // cerr << "探索終了" << endl;
 
-  State* best = nullptr;
+  State best;
+  bool has_best = false;
 
   // できれば最終ターンから選ぶ
   if (!pq[max_turn].empty()) {
     best = pq[max_turn].top();
-} else {
+    has_best = true;
+  } else {
     // 念のため、最も深い非空レベルから選ぶ
     for (int t = max_turn - 1; t >= 0; t--) {
       if (!pq[t].empty()) {
         best = pq[t].top();
+        has_best = true;
         break;
       }
     }
   }
 
-  if (best == nullptr) {
+  if (!has_best) {
     cerr << "No state found.\n";
     return 1;
   }
 
   vector<int> path_nodes;
-  for (int v = best->tree_index; v != -1; v = tree[v].parent) {
+  for (int v = best.tree_index; v != -1; v = tree[v].parent) {
     path_nodes.push_back(v);
   }
   reverse(path_nodes.begin(), path_nodes.end());
