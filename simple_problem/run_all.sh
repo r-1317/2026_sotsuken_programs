@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# existing.outとnew.outについて、--branch / --loops / --padding-size を3重ループで実行する
+# existing.outとnew_avl.outについて、--branch / --loops / --padding-size を3重ループで実行する
 # そのときの最大メモリ使用量を測定し、結果を./out/all_memory_usage.csvに出力する
 # 実行後に出力される最大メモリ使用量が10GBを超える試行が3回続いたら打ち切る
 
@@ -15,8 +15,8 @@ if [[ ! -x ./existing.out ]]; then
 	g++ -O2 -o existing.out existing.cpp
 fi
 
-if [[ ! -x ./new.out ]]; then
-	g++ -O2 -o new.out new.cpp
+if [[ ! -x ./new_avl.out ]]; then
+	g++ -O2 -o new_avl.out new_avl.cpp
 fi
 
 memory_limit_kb=$((10 * 1024 * 1024))
@@ -63,7 +63,7 @@ for branch in $(seq 10 10 200); do
 			existing_memory=$(measure_peak_memory_kb ./existing.out "$branch" "$loops" "$padding_size") || existing_status=over_10gb
 
 			new_status=ok
-			new_memory=$(measure_peak_memory_kb ./new.out "$branch" "$loops" "$padding_size") || new_status=over_10gb
+			new_memory=$(measure_peak_memory_kb ./new_avl.out "$branch" "$loops" "$padding_size") || new_status=over_10gb
 
 			echo "$branch,$loops,$padding_size,$existing_memory,$existing_status,$new_memory,$new_status" >> "$output_file"
 
