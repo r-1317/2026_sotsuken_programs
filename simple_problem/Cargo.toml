@@ -1,0 +1,14 @@
+[package]
+name = "simple_problem"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[[bin]]
+name = "existing"
+path = "src/existing.rs"
+
+[[bin]]
+name = "new_avl"
+path = "src/new_avl.rs"
