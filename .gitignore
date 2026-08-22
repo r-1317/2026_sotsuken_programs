@@ -13,3 +13,6 @@ wheels/
 # 実行ファイル
 *.out
 *.exe
+
+# その他
+icthesis.pdf
