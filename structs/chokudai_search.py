@@ -554,32 +554,30 @@ def get_path(tree, tree_index):
     return path
 
 
-# 問題ごとに次の4関数を実装する必要がある。
+# 問題ごとに次の3関数を実装する必要がある。
 #
 #   def state_less(lhs, rhs): ...
 #   def get_next_states(state): ...
 #   def time_check(): ...
-#   def get_search_depth(initial_state): ...
 #
 # デフォルトは研究の提案法 AVLTreeStates。_chokudai_search 内の
 # AVLTreeStates を HeapStates または RBTreeStates に置き換えるだけで比較できる。
 def _chokudai_search(
     first_state,
+    search_depth,
     chokudai_width,
     max_loop,
     state_less_function,
     get_next_states_function,
     time_check_function,
-    get_search_depth_function,
 ):
     if chokudai_width <= 0:
         raise ValueError("chokudai_width must be positive")
     if max_loop <= 0:
         raise ValueError("max_loop must be positive")
 
-    search_depth = get_search_depth_function(first_state)
     if search_depth < 0:
-        raise ValueError("get_search_depth returned a negative value")
+        raise ValueError("search_depth must be non-negative")
 
     # 1層から今後取り出し得る最大数。この個数まで保持すれば、
     # それより悪い状態は従来法でも取り出されない。
@@ -621,13 +619,13 @@ def _chokudai_search(
     return []
 
 
-def chokudai_search(first_state, chokudai_width, max_loop):
+def chokudai_search(first_state, search_depth, chokudai_width, max_loop):
     return _chokudai_search(
         first_state,
+        search_depth,
         chokudai_width,
         max_loop,
         state_less,  # 問題ごとに実装する必要がある。
         get_next_states,  # 問題ごとに実装する必要がある。
         time_check,  # 問題ごとに実装する必要がある。
-        get_search_depth,  # 問題ごとに実装する必要がある。
     )

@@ -45,6 +45,7 @@
 - 関数名は`chokudai_search`
 ### 引数
 - 初期の盤面
+- 探索の深さ
 - chokudai幅
 - 最大ループ数
 ### 返り値
@@ -109,3 +110,11 @@ State ChokudaiSearch(State FirstState)
   return BestState;
 }
 ```
+
+---
+
+以下の内容について説明してください。
+
+- 関数get_search_depthは何をする関数なのか
+- state_lessが存在することによって、Codonでの性能には影響があるか
+- 

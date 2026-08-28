@@ -355,22 +355,21 @@ std::vector<Action> get_path(
 //
 // 呼び出し例:
 //   auto actions = chokudai_search<Action, state_less, get_next_states,
-//                                  time_check, get_search_depth>(
-//       initial_state, chokudai_width, max_loop);
+//                                  time_check>(
+//       initial_state, search_depth, chokudai_width, max_loop);
 //
 // 問題ごとに次の関数を実装する必要がある。
 //   bool state_less(const State&, const State&);
 //   std::vector<State> get_next_states(const State&);
 //   bool time_check();
-//   int get_search_depth(const State&);
 template <class Action,
           auto StateLess,
           auto GetNextStates,
           auto TimeCheck,
-          auto GetSearchDepth,
           template <class, auto> class States = AVLTreeStates,
           class State>
 std::vector<Action> chokudai_search(State first_state,
+                                    int search_depth,
                                     int chokudai_width,
                                     int max_loop) {
   if (chokudai_width <= 0) {
@@ -380,10 +379,8 @@ std::vector<Action> chokudai_search(State first_state,
     throw std::invalid_argument("max_loop must be positive");
   }
 
-  // 問題ごとに get_search_depth を実装する必要がある。
-  const int search_depth = GetSearchDepth(first_state);
   if (search_depth < 0) {
-    throw std::invalid_argument("get_search_depth returned a negative value");
+    throw std::invalid_argument("search_depth must be non-negative");
   }
 
   // 1層から今後取り出し得る最大数。この個数まで保持すれば、
