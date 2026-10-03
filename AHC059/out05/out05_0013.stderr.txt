@@ -1,0 +1,2 @@
+Total path length: 1273
+Final layer visits: 374

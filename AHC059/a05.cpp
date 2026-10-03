@@ -3,7 +3,7 @@ using namespace std;
 
 static constexpr int N = 20;               // 固定
 static constexpr double DEFAULT_TIME_LIMIT = 1.9;  // 秒
-static constexpr int MAX_WIDTH = 1000000000;     // 機能しないほど大きくする
+static constexpr int DEFAULT_MAX_LOOP = 1000;
 
 struct Pos {
   int x, y;
@@ -119,7 +119,11 @@ struct Node {
 struct HeapCmp {
   bool operator()(const Node* a, const Node* b) const {
     // heap algorithms: comparator により "先頭が最小" になるよう greater 風にする
-    return a->prev_path_length > b->prev_path_length;
+    if (a->prev_path_length != b->prev_path_length) {
+      return a->prev_path_length > b->prev_path_length;
+    }
+    // 赤黒木版と同じく、同評価値では生成順を優先する。
+    return a->tree_index > b->tree_index;
   }
 };
 
@@ -158,15 +162,27 @@ static vector<char> make_commands(const vector<Pos>& collect_order, Pos current_
 // パス長計算
 static int get_path_length(const vector<Pos>& path) {
   int length = 0;
-  for (size_t i = 1; i < path.size(); i++) {
-    length += manhattan(path[i - 1], path[i]);
+  Pos current{0, 0};
+  for (const Pos& next : path) {
+    length += manhattan(current, next);
+    current = next;
   }
   return length;
 }
 
 static void print_usage(const char* prog) {
-  cerr << "Usage: " << prog << " [TIME_LIMIT_SECONDS] [-t SECONDS|--time SECONDS|--time=SECONDS]\n";
+  cerr << "Usage: " << prog << " [TIME_LIMIT_SECONDS] [-t SECONDS|--time SECONDS|--time=SECONDS] [--loops COUNT|--loops=COUNT]\n";
   cerr << "Default time limit: " << DEFAULT_TIME_LIMIT << " seconds\n";
+  cerr << "Default maximum loops: " << DEFAULT_MAX_LOOP << "\n";
+}
+
+static int parse_max_loop(const string& value) {
+  size_t end = 0;
+  const int max_loop = stoi(value, &end);
+  if (end != value.size() || max_loop <= 0) {
+    throw invalid_argument("loop count must be a positive integer");
+  }
+  return max_loop;
 }
 
 int main(int argc, char** argv) {
@@ -174,6 +190,7 @@ int main(int argc, char** argv) {
   cin.tie(nullptr);
 
   double time_limit = DEFAULT_TIME_LIMIT;
+  int max_loop = DEFAULT_MAX_LOOP;
   for (int argi = 1; argi < argc; ++argi) {
     string a = argv[argi];
     try {
@@ -185,12 +202,20 @@ int main(int argc, char** argv) {
           return 1;
         }
         time_limit = stod(string(argv[++argi]));
+      } else if (a.rfind("--loops=", 0) == 0) {
+        max_loop = parse_max_loop(a.substr(8));
+      } else if (a == "--loops") {
+        if (argi + 1 >= argc) {
+          print_usage(argv[0]);
+          return 1;
+        }
+        max_loop = parse_max_loop(argv[++argi]);
       } else if (!a.empty() && a[0] != '-' && argi == 1) {
         // 位置引数で TIME_LIMIT_SECONDS を受け取る（最小仕様）
         time_limit = stod(a);
       }
     } catch (const std::exception&) {
-      cerr << "Invalid time limit argument: " << a << "\n";
+      cerr << "Invalid argument: " << a << "\n";
       print_usage(argv[0]);
       return 1;
     }
@@ -247,8 +272,11 @@ int main(int argc, char** argv) {
 
   auto start = chrono::steady_clock::now();
   bool flag = true;
+  uint64_t final_layer_visits = 0;
 
-  while (flag) {
+  // 各層から取り出す回数を max_loop 以下に揃える。
+  // ヒープ版は状態を削除せず、赤黒木版との比較の基準とする。
+  for (int loop = 0; loop < max_loop && flag; ++loop) {
     for (int i = 0; i < (N * N) / 2; i++) {
       auto& cur_level = chokudai_levels[i];
       auto& next_level = chokudai_levels[i + 1];
@@ -261,25 +289,18 @@ int main(int argc, char** argv) {
       // Python: next_nodes = node.next_nodes(...)
       auto next_nodes = node->next_nodes(grid, nums_idx_list, pool);
 
-      // Python: for next_node in next_nodes: heapq.heappush(next_level, next_node)
-      for (Node* nn : next_nodes) {
-        heappush(next_level, nn);
-      }
-
-      // ノード木に新ノードを追加し、インデックスを設定
+      // 比較に使う生成順（tree_index）を確定してからヒープへ追加する。
       for (Node* nn : next_nodes) {
         int parent_index = node->tree_index;
         node_tree.emplace_back(parent_index, nn->current_pos, nn->stack_top);
         nn->tree_index = static_cast<int>(node_tree.size()) - 1;
+        heappush(next_level, nn);
       }
 
-      /*
-      // Python: while len(next_level) > MAX_WIDTH: next_level.pop()
-      // 末尾（葉）を落とす：heap 性は維持されるが、落ちる要素は「最大」ではない点も Python と同じ
-      while ((int)next_level.size() > MAX_WIDTH) {
-        next_level.pop_back();
+      // 最終層の子を生成した展開を1回と数える（子の個数ではない）。
+      if (i + 1 == LEVELS - 1 && !next_nodes.empty()) {
+        ++final_layer_visits;
       }
-      */
 
       // 時間制限チェック
       double elapsed = chrono::duration<double>(chrono::steady_clock::now() - start).count();
@@ -297,7 +318,10 @@ int main(int argc, char** argv) {
     if (!chokudai_levels[lv].empty()) {
       auto tmp = chokudai_levels[lv];
       sort(tmp.begin(), tmp.end(), [](const Node* a, const Node* b) {
-        return a->total_cost() < b->total_cost();
+        if (a->total_cost() != b->total_cost()) {
+          return a->total_cost() < b->total_cost();
+        }
+        return a->tree_index < b->tree_index;
       });
       best_node = tmp[0];
       break;
@@ -334,6 +358,7 @@ int main(int argc, char** argv) {
 
   // デバッグ（Python は stderr に出している）
   cerr << "Total path length: " << get_path_length(collect_order) << "\n";
+  cerr << "Final layer visits: " << final_layer_visits << "\n";
 
   return 0;
 }
